@@ -17,6 +17,24 @@
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
 
+  /* ---- Barra de progresso da rolagem (JS puro: funciona também no celular) ---- */
+  var progressBar = document.getElementById('scrollProgress');
+
+  function updateProgress() {
+    var root = document.documentElement;
+    var max = root.scrollHeight - window.innerHeight;
+    var y = window.pageYOffset || root.scrollTop || document.body.scrollTop || 0;
+    var ratio = max > 0 ? Math.min(1, Math.max(0, y / max)) : 0;
+    progressBar.style.transform = 'scaleX(' + ratio + ')';
+  }
+
+  if (progressBar) {
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener('resize', updateProgress);
+    window.addEventListener('load', updateProgress);
+    updateProgress();
+  }
+
   /* ---- Menu mobile ---- */
   function closeMenu() {
     nav.classList.remove('is-open');
@@ -154,10 +172,6 @@
       });
     }
 
-    var progress = document.getElementById('scrollProgress');
-    if (progress) {
-      M.scroll(M.animate(progress, { scaleX: [0, 1] }, { ease: 'linear' }));
-    }
   }
 
   /* ---- Galeria: setas do carrossel ---- */
