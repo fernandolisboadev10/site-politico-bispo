@@ -55,19 +55,111 @@
 
   sections.forEach(function (section) { navObserver.observe(section); });
 
-  /* ---- Animações de entrada (fade-in-up) ---- */
-  var revealEls = document.querySelectorAll('.reveal');
+  /* ---- Animações de entrada: Motion + scroll reveal ---- */
+  var revealEls = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
+  var M = window.Motion;
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var motionOk = !reduceMotion && M && M.animate && M.inView && M.scroll;
 
-  var revealObserver = new IntersectionObserver(function (entries, obs) {
-    entries.forEach(function (entry) {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('is-visible');
-        obs.unobserve(entry.target);
-      }
+  function showNow(el) { el.classList.add('is-visible'); }
+
+  if (!motionOk) {
+    // Sem Motion (CDN bloqueada) ou com "reduzir movimento": revela só com fade via CSS.
+    if (reduceMotion) {
+      revealEls.forEach(showNow);
+    } else {
+      var revealObserver = new IntersectionObserver(function (entries, obs) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            showNow(entry.target);
+            obs.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15 });
+      revealEls.forEach(function (el) { revealObserver.observe(el); });
+    }
+  } else {
+    var EASE = [0.16, 1, 0.3, 1];
+
+    // Atraso escalonado entre irmãos .reveal (cards de valores, propostas etc.)
+    function siblingDelay(el) {
+      var group = Array.prototype.filter.call(el.parentElement.children, function (c) {
+        return c.classList.contains('reveal');
+      });
+      return Math.min(group.indexOf(el) * 0.09, 0.45);
+    }
+
+    function keyframesFor(el) {
+      var dir = el.getAttribute('data-reveal') || 'up';
+      var kf = { opacity: [0, 1], scale: [0.96, 1] };
+      if (dir === 'left') kf.x = [-44, 0];
+      else if (dir === 'right') kf.x = [44, 0];
+      else if (dir === 'zoom') kf.scale = [0.9, 1];
+      else kf.y = [34, 0];
+      return kf;
+    }
+
+    function countUp(el, delay) {
+      var target = parseInt(el.textContent, 10);
+      if (isNaN(target)) return;
+      el.textContent = '0';
+      M.animate(0, target, {
+        duration: 1.8,
+        delay: delay,
+        ease: EASE,
+        onUpdate: function (v) { el.textContent = Math.round(v); }
+      });
+    }
+
+    revealEls.forEach(function (el) {
+      M.inView(el, function () {
+        var delay = siblingDelay(el);
+        el.style.opacity = '0';
+        el.classList.add('is-animating', 'is-visible');
+
+        var controls = M.animate(el, keyframesFor(el), { duration: 0.9, delay: delay, ease: EASE });
+        var clearInline = function () {
+          el.style.removeProperty('opacity');
+          el.style.removeProperty('transform');
+        };
+        var finish = function () {
+          // Devolve o controle ao CSS (hover dos cards, etc.) sem mudança visual.
+          clearInline();
+          el.classList.remove('is-animating');
+          // O Motion pode gravar o estilo final logo depois; limpa de novo.
+          setTimeout(clearInline, 120);
+        };
+        Promise.resolve(controls.finished || controls).then(finish, finish);
+
+        var counter = el.querySelector('.thanks__count');
+        if (counter) countUp(counter, delay + 0.6);
+      }, { amount: 0.15 });
     });
-  }, { threshold: 0.15 });
 
-  revealEls.forEach(function (el) { revealObserver.observe(el); });
+    /* ---- Parallax e barra de progresso ligados à rolagem ---- */
+    var hero = document.getElementById('inicio');
+    var heroBg = document.querySelector('.hero__bg');
+    if (hero && heroBg) {
+      M.scroll(M.animate(heroBg, { y: [0, 80] }, { ease: 'linear' }), {
+        target: hero,
+        offset: ['start start', 'end start']
+      });
+    }
+
+    var cta = document.getElementById('ajudar');
+    var ctaBg = document.querySelector('.cta__bg');
+    if (cta && ctaBg) {
+      M.scroll(M.animate(ctaBg, { y: [-30, 30] }, { ease: 'linear' }), {
+        target: cta,
+        offset: ['start end', 'end start']
+      });
+    }
+
+    var progress = document.getElementById('scrollProgress');
+    if (progress) {
+      M.scroll(M.animate(progress, { scaleX: [0, 1] }, { ease: 'linear' }));
+    }
+  }
 
   /* ---- Galeria: setas do carrossel ---- */
   var galleryWrap = document.getElementById('galleryTrackWrap');
