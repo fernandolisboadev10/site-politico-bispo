@@ -59,26 +59,24 @@
   var revealEls = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
   var M = window.Motion;
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var motionOk = !reduceMotion && M && M.animate && M.inView && M.scroll;
+  var motionOk = M && M.animate && M.inView && M.scroll;
 
   function showNow(el) { el.classList.add('is-visible'); }
 
   if (!motionOk) {
-    // Sem Motion (CDN bloqueada) ou com "reduzir movimento": revela só com fade via CSS.
-    if (reduceMotion) {
-      revealEls.forEach(showNow);
-    } else {
-      var revealObserver = new IntersectionObserver(function (entries, obs) {
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) {
-            showNow(entry.target);
-            obs.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.15 });
-      revealEls.forEach(function (el) { revealObserver.observe(el); });
-    }
+    // Sem Motion (CDN bloqueada): revela só com fade via CSS.
+    var revealObserver = new IntersectionObserver(function (entries, obs) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          showNow(entry.target);
+          obs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    revealEls.forEach(function (el) { revealObserver.observe(el); });
   } else {
+    // Com "reduzir movimento" (comum em celulares): só fade suave, sem deslocamento,
+    // contador nem parallax.
     var EASE = [0.16, 1, 0.3, 1];
 
     // Atraso escalonado entre irmãos .reveal (cards de valores, propostas etc.)
@@ -90,6 +88,7 @@
     }
 
     function keyframesFor(el) {
+      if (reduceMotion) return { opacity: [0, 1] };
       var dir = el.getAttribute('data-reveal') || 'up';
       var kf = { opacity: [0, 1], scale: [0.96, 1] };
       if (dir === 'left') kf.x = [-44, 0];
@@ -132,14 +131,14 @@
         Promise.resolve(controls.finished || controls).then(finish, finish);
 
         var counter = el.querySelector('.thanks__count');
-        if (counter) countUp(counter, delay + 0.6);
+        if (counter && !reduceMotion) countUp(counter, delay + 0.6);
       }, { amount: 0.15 });
     });
 
     /* ---- Parallax e barra de progresso ligados à rolagem ---- */
     var hero = document.getElementById('inicio');
     var heroBg = document.querySelector('.hero__bg');
-    if (hero && heroBg) {
+    if (hero && heroBg && !reduceMotion) {
       M.scroll(M.animate(heroBg, { y: [0, 80] }, { ease: 'linear' }), {
         target: hero,
         offset: ['start start', 'end start']
@@ -148,7 +147,7 @@
 
     var cta = document.getElementById('ajudar');
     var ctaBg = document.querySelector('.cta__bg');
-    if (cta && ctaBg) {
+    if (cta && ctaBg && !reduceMotion) {
       M.scroll(M.animate(ctaBg, { y: [-30, 30] }, { ease: 'linear' }), {
         target: cta,
         offset: ['start end', 'end start']
